@@ -3,156 +3,176 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TiNo Cloud Gallery — Real Storage</title>
-    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@300;500;700&display=swap" rel="stylesheet">
+    <title>TiNo Gallery — Pro Cloud</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Rajdhani:wght@300;500;700&display=swap" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <!-- LIBRERIA SUPABASE -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        :root { --bg: #0f111a; --card-bg: #1a1c26; --accent: #00f2ff; }
+        :root { --neon: #00f2ff; --bg: #05070a; --card: #0d1117; }
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Rajdhani', sans-serif; background-color: var(--bg); color: #fff; padding: 20px; }
+        body { font-family: 'Rajdhani', sans-serif; background: var(--bg); color: #fff; min-height: 100vh; padding: 20px; overflow-x: hidden; }
 
-        .filter-bar { display: flex; justify-content: center; gap: 10px; margin-bottom: 30px; position: sticky; top: 10px; z-index: 100; }
-        .filter-btn { background: rgba(40, 44, 55, 0.8); border: 1px solid rgba(255,255,255,0.1); padding: 10px 25px; border-radius: 12px; color: rgba(255,255,255,0.7); cursor: pointer; transition: 0.3s; backdrop-filter: blur(10px); font-weight: 600; }
-        .filter-btn:hover, .filter-btn.active { background: var(--accent); color: #000; box-shadow: 0 0 20px rgba(0, 242, 255, 0.4); }
+        /* HEADER PREMIUM */
+        .top-nav {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 15px 5%; margin-bottom: 40px; position: sticky; top: 0;
+            z-index: 1000; backdrop-filter: blur(25px); background: rgba(5,7,10,0.85);
+            border-bottom: 1px solid rgba(0, 242, 255, 0.15); border-radius: 0 0 20px 20px;
+        }
+        .logo { font-family: 'Orbitron'; color: var(--neon); letter-spacing: 3px; font-weight: 900; text-shadow: 0 0 15px var(--neon); }
 
-        .gallery-container { columns: 4; column-gap: 15px; max-width: 1400px; margin: 0 auto; }
-        @media (max-width: 1200px) { .gallery-container { columns: 3; } }
-        @media (max-width: 768px) { .gallery-container { columns: 2; } }
+        /* FILTROS */
+        .filter-group { display: flex; gap: 12px; }
+        .btn-f {
+            background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1);
+            padding: 10px 25px; border-radius: 25px; color: #888; cursor: pointer;
+            transition: 0.3s; font-weight: 700; font-size: 0.8rem; text-transform: uppercase;
+        }
+        .btn-f:hover, .btn-f.active { background: var(--neon); color: #000; border-color: var(--neon); box-shadow: 0 0 20px var(--neon); }
 
-        .gallery-item { position: relative; margin-bottom: 15px; border-radius: 15px; overflow: hidden; background: var(--card-bg); break-inside: avoid; transition: 0.4s; cursor: pointer; border: 1px solid rgba(255,255,255,0.05); animation: fadeIn 0.5s ease; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        /* GRILLA MASONRY PROFESIONAL */
+        .gallery { columns: 4; column-gap: 20px; max-width: 1500px; margin: 0 auto; }
+        @media (max-width: 1200px) { .gallery { columns: 3; } }
+        @media (max-width: 768px) { .gallery { columns: 2; } }
+        @media (max-width: 480px) { .gallery { columns: 1; } }
 
-        .gallery-item img, .gallery-item video { width: 100%; display: block; transition: 0.5s; }
-        .item-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; opacity: 0; transition: 0.3s; backdrop-filter: blur(2px); }
-        .gallery-item:hover .item-overlay { opacity: 1; }
-        .action-menu { background: rgba(255,255,255,0.1); padding: 15px 25px; border-radius: 15px; display: flex; gap: 20px; border: 1px solid rgba(255,255,255,0.2); }
-        .action-menu i { font-size: 1.5rem; color: #fff; transition: 0.3s; }
-        .action-menu i:hover { color: var(--accent); transform: scale(1.2); }
+        .item {
+            position: relative; margin-bottom: 20px; border-radius: 18px;
+            overflow: hidden; background: var(--card); border: 1px solid rgba(255,255,255,0.05);
+            break-inside: avoid; transition: 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            cursor: pointer; animation: fadeInUp 0.6s ease-out both;
+        }
+        @keyframes fadeInUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
 
-        .upload-fab { position: fixed; bottom: 30px; right: 30px; width: 70px; height: 70px; background: var(--accent); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #000; font-size: 1.8rem; box-shadow: 0 0 30px rgba(0, 242, 255, 0.6); cursor: pointer; z-index: 200; transition: 0.3s; }
-        .upload-fab.loading { animation: pulse 1s infinite; opacity: 0.7; pointer-events: none; }
-        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
+        .item img, .item video { width: 100%; display: block; transition: 0.6s; }
+        .item:hover { transform: translateY(-5px); border-color: var(--neon); box-shadow: 0 10px 30px rgba(0,242,255,0.15); }
+        .item:hover img { transform: scale(1.08); }
 
-        .video-tag { position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.7); padding: 5px 10px; border-radius: 8px; font-size: 0.7rem; font-weight: 700; color: var(--accent); z-index: 5; }
+        /* OVERLAY ESTILO CAPTURA 2 */
+        .overlay {
+            position: absolute; inset: 0; background: rgba(0,0,0,0.4);
+            display: flex; align-items: center; justify-content: center;
+            opacity: 0; transition: 0.3s; backdrop-filter: blur(3px);
+        }
+        .item:hover .overlay { opacity: 1; }
+        .controls { display: flex; gap: 20px; background: rgba(255,255,255,0.1); padding: 15px 30px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.2); backdrop-filter: blur(10px); }
+        .controls i { font-size: 1.6rem; color: #fff; transition: 0.3s; }
+        .controls i:hover { color: var(--neon); transform: scale(1.25); }
+
+        /* BOTON SUBIR */
+        .add-btn {
+            position: fixed; bottom: 40px; right: 40px; width: 75px; height: 75px;
+            background: var(--neon); border-radius: 50%; display: flex;
+            align-items: center; justify-content: center; color: #000;
+            font-size: 2rem; box-shadow: 0 10px 40px rgba(0, 242, 255, 0.5);
+            cursor: pointer; z-index: 2000; transition: 0.4s;
+        }
+        .add-btn:hover { transform: scale(1.15) rotate(90deg); filter: brightness(1.2); }
+        .add-btn.loading { animation: spin 1s infinite linear; pointer-events: none; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* VISUALIZADOR GRANDE (LIGHTBOX) */
+        #lightbox {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.95);
+            z-index: 5000; display: none; align-items: center; justify-content: center;
+            backdrop-filter: blur(15px); padding: 40px; cursor: zoom-out;
+        }
+        #lightbox img, #lightbox video { max-width: 90%; max-height: 90vh; border-radius: 15px; box-shadow: 0 0 50px rgba(0,0,0,0.5); }
     </style>
 </head>
 <body>
 
-    <nav class="filter-bar">
-        <button class="filter-btn active" id="btn-all" onclick="loadGallery('all')">Todo</button>
-        <button class="filter-btn" id="btn-img" onclick="loadGallery('img')">Fotos</button>
-        <button class="filter-btn" id="btn-vid" onclick="loadGallery('vid')">Videos</button>
-    </nav>
+    <header class="top-nav">
+        <div class="logo">TiNo_GALLERY</div>
+        <div class="filter-group">
+            <button class="btn-f active" id="f-all" onclick="load('all')">TODO</button>
+            <button class="btn-f" id="f-img" onclick="load('img')">FOTOS</button>
+            <button class="btn-f" id="f-vid" onclick="load('vid')">VIDEOS</button>
+        </div>
+        <div style="font-size: 0.7rem; font-family:'Orbitron'; opacity:0.6; color:var(--neon)">STORAGE ONLINE</div>
+    </header>
 
-    <div class="gallery-container" id="gallery">
-        <!-- Contenido Real -->
+    <div class="gallery" id="gallery"></div>
+
+    <div id="lightbox" onclick="this.style.display='none'">
+        <div id="lb-content"></div>
     </div>
 
-    <div class="upload-fab" id="uploadBtn" onclick="document.getElementById('fileInput').click()">
+    <div class="add-btn" id="addBtn" onclick="document.getElementById('input').click()">
         <i class="fas fa-plus"></i>
     </div>
-    <input type="file" id="fileInput" hidden accept="image/*,video/*">
+    <input type="file" id="input" hidden accept="image/*,video/*">
 
     <script>
-        // CONFIGURACIÓN DE TU PROYECTO
-        const SUPABASE_URL = 'https://cnjoxrefiafqnqamlhpc.supabase.co';
-        const SUPABASE_KEY = 'sb_publishable_nuAFjW0AI-rVWMwgMiRyUA_ZWZf3ICp';
-        const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        const URL = 'https://cnjoxrefiafqnqamlhpc.supabase.co';
+        const KEY = 'sb_publishable_nuAFjW0AI-rVWMwgMiRyUA_ZWZf3ICp';
+        const sb = supabase.createClient(URL, KEY);
 
-        const gallery = document.getElementById('gallery');
-        const fileInput = document.getElementById('fileInput');
-        const uploadBtn = document.getElementById('uploadBtn');
+        const gal = document.getElementById('gallery');
+        const btn = document.getElementById('addBtn');
 
-        // 1. CARGAR GALERÍA
-        async function loadGallery(filter = 'all') {
-            // Actualizar botones UI
-            document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-            document.getElementById('btn-' + filter).classList.add('active');
+        async function load(type = 'all') {
+            document.querySelectorAll('.btn-f').forEach(b => b.classList.remove('active'));
+            document.getElementById('f-' + type).classList.add('active');
 
-            gallery.innerHTML = '<p style="text-align:center; width:100%; margin-top:50px;">Sincronizando con Proyecto agustino8080...</p>';
+            gal.innerHTML = '<p style="text-align:center; width:100%; margin-top:100px; opacity:0.5; font-family:Orbitron;">SINCRONIZANDO NUBE...</p>';
 
-            let query = _supabase.from('galeria').select('*').order('created_at', { ascending: false });
-            if (filter !== 'all') query = query.eq('tipo', filter);
+            let q = sb.from('galeria').select('*').order('id', { ascending: false });
+            if (type !== 'all') q = q.eq('tipo', type);
 
-            const { data, error } = await query;
-            if (error) return console.error(error);
+            const { data, error } = await q;
+            if(error) return console.log(error);
 
-            gallery.innerHTML = '';
-            if (data.length === 0) {
-                gallery.innerHTML = '<p style="text-align:center; width:100%; opacity:0.5; margin-top:50px;">Galería vacía. Haz clic en el botón + para subir.</p>';
-            }
-
-            data.forEach(item => {
+            gal.innerHTML = '';
+            data.forEach(i => {
                 const div = document.createElement('div');
-                div.className = 'gallery-item';
-
-                let mediaTag = item.tipo === 'img'
-                    ? `<img src="${item.url}" loading="lazy">`
-                    : `<div class="video-tag">VIDEO</div><video src="${item.url}" muted loop onmouseover="this.play()" onmouseout="this.pause()"></video>`;
+                div.className = 'item';
+                let media = i.tipo === 'img'
+                    ? `<img src="${i.url}" onclick="openLB('${i.url}', 'img')">`
+                    : `<video src="${i.url}" muted loop onmouseover="this.play()" onmouseout="this.pause()" onclick="openLB('${i.url}', 'vid')"></video>`;
 
                 div.innerHTML = `
-                    ${mediaTag}
-                    <div class="item-overlay">
-                        <div class="action-menu">
-                            <i class="fas fa-search" onclick="window.open('${item.url}')"></i>
-                            <i class="fas fa-trash" onclick="deleteItem(${item.id}, '${item.nombre}')"></i>
+                    ${media}
+                    <div class="overlay">
+                        <div class="controls">
+                            <i class="fas fa-expand" onclick="openLB('${i.url}', '${i.tipo}')"></i>
+                            <i class="fas fa-trash-alt" onclick="event.stopPropagation(); del(${i.id}, '${i.nombre}')"></i>
                         </div>
                     </div>
                 `;
-                gallery.appendChild(div);
+                gal.appendChild(div);
             });
         }
 
-        // 2. SUBIDA REAL
-        fileInput.onchange = async (e) => {
+        document.getElementById('input').onchange = async (e) => {
             const file = e.target.files[0];
-            if (!file) return;
-
-            // Límite de 100MB solicitado
-            if (file.size > 100 * 1024 * 1024) {
-                alert("El archivo supera los 100MB permitidos.");
-                return;
-            }
-
-            uploadBtn.classList.add('loading');
-            const fileExt = file.name.split('.').pop();
-            const fileName = `${Date.now()}_${Math.floor(Math.random()*1000)}.${fileExt}`;
-
-            // A. Subir al Storage (Bucket 'archivos')
-            const { data: storageData, error: storageError } = await _supabase.storage
-                .from('archivos')
-                .upload(fileName, file);
-
-            if (storageError) {
-                alert("Error al subir: " + storageError.message);
-                uploadBtn.classList.remove('loading');
-                return;
-            }
-
-            // B. Obtener URL Publica
-            const { data: { publicUrl } } = _supabase.storage.from('archivos').getPublicUrl(fileName);
-
-            // C. Guardar metadatos en Tabla 'galeria'
-            const tipo = file.type.startsWith('video') ? 'vid' : 'img';
-            await _supabase.from('galeria').insert([
-                { nombre: fileName, url: publicUrl, tipo: tipo }
-            ]);
-
-            uploadBtn.classList.remove('loading');
-            loadGallery();
+            if(!file) return;
+            btn.classList.add('loading');
+            const name = `${Date.now()}_${file.name}`;
+            const { data: sData, error: sErr } = await sb.storage.from('archivos').upload(name, file);
+            if(sErr) { alert("Error al subir"); btn.classList.remove('loading'); return; }
+            const { data: { publicUrl } } = sb.storage.from('archivos').getPublicUrl(name);
+            const tipo = file.type.includes('video') ? 'vid' : 'img';
+            await sb.from('galeria').insert([{ nombre: name, url: publicUrl, tipo: tipo }]);
+            btn.classList.remove('loading');
+            load();
         };
 
-        // 3. ELIMINAR
-        async function deleteItem(id, nombre) {
-            if(!confirm("¿Eliminar archivo de la nube?")) return;
-            await _supabase.from('galeria').delete().eq('id', id);
-            await _supabase.storage.from('archivos').remove([nombre]);
-            loadGallery();
+        async function del(id, name) {
+            if(!confirm("¿Eliminar archivo permanentemente?")) return;
+            await sb.from('galeria').delete().eq('id', id);
+            await sb.storage.from('archivos').remove([name]);
+            load();
         }
 
-        loadGallery();
+        function openLB(url, type) {
+            const lb = document.getElementById('lightbox');
+            const lbc = document.getElementById('lb-content');
+            lb.style.display = 'flex';
+            lbc.innerHTML = type === 'img' ? `<img src="${url}">` : `<video src="${url}" controls autoplay></video>`;
+        }
+
+        load();
     </script>
 </body>
 </html>
