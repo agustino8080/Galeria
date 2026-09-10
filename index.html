@@ -3,222 +3,101 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TiNo Cloud Gallery — Premium Storage</title>
+    <title>TiNo Cloud Gallery — Real Storage</title>
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@300;500;700&display=swap" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <!-- LIBRERIA SUPABASE -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        :root {
-            --bg: #0f111a;
-            --card-bg: #1a1c26;
-            --accent: #00f2ff;
-            --glass: rgba(255, 255, 255, 0.05);
-        }
-
+        :root { --bg: #0f111a; --card-bg: #1a1c26; --accent: #00f2ff; }
         * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Rajdhani', sans-serif; background-color: var(--bg); color: #fff; padding: 20px; }
 
-        body {
-            font-family: 'Rajdhani', sans-serif;
-            background-color: var(--bg);
-            color: #fff;
-            padding: 20px;
-        }
+        .filter-bar { display: flex; justify-content: center; gap: 10px; margin-bottom: 30px; position: sticky; top: 10px; z-index: 100; }
+        .filter-btn { background: rgba(40, 44, 55, 0.8); border: 1px solid rgba(255,255,255,0.1); padding: 10px 25px; border-radius: 12px; color: rgba(255,255,255,0.7); cursor: pointer; transition: 0.3s; backdrop-filter: blur(10px); font-weight: 600; }
+        .filter-btn:hover, .filter-btn.active { background: var(--accent); color: #000; box-shadow: 0 0 20px rgba(0, 242, 255, 0.4); }
 
-        /* BARRA DE FILTROS SUPERIOR */
-        .filter-bar {
-            display: flex;
-            justify-content: center;
-            gap: 10px;
-            margin-bottom: 30px;
-            position: sticky;
-            top: 10px;
-            z-index: 100;
-        }
-
-        .filter-btn {
-            background: rgba(40, 44, 55, 0.8);
-            border: 1px solid rgba(255,255,255,0.1);
-            padding: 10px 25px;
-            border-radius: 12px;
-            color: rgba(255,255,255,0.7);
-            cursor: pointer;
-            transition: 0.3s;
-            backdrop-filter: blur(10px);
-            font-weight: 600;
-            font-size: 1rem;
-        }
-
-        .filter-btn:hover, .filter-btn.active {
-            background: var(--accent);
-            color: #000;
-            box-shadow: 0 0 20px rgba(0, 242, 255, 0.4);
-        }
-
-        /* GRILLA MASONRY */
-        .gallery-container {
-            columns: 4;
-            column-gap: 15px;
-            max-width: 1400px;
-            margin: 0 auto;
-        }
-
+        .gallery-container { columns: 4; column-gap: 15px; max-width: 1400px; margin: 0 auto; }
         @media (max-width: 1200px) { .gallery-container { columns: 3; } }
         @media (max-width: 768px) { .gallery-container { columns: 2; } }
-        @media (max-width: 480px) { .gallery-container { columns: 1; } }
 
-        .gallery-item {
-            position: relative;
-            margin-bottom: 15px;
-            border-radius: 15px;
-            overflow: hidden;
-            background: var(--card-bg);
-            break-inside: avoid;
-            transition: 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-            cursor: pointer;
-            border: 1px solid rgba(255,255,255,0.05);
-        }
+        .gallery-item { position: relative; margin-bottom: 15px; border-radius: 15px; overflow: hidden; background: var(--card-bg); break-inside: avoid; transition: 0.4s; cursor: pointer; border: 1px solid rgba(255,255,255,0.05); animation: fadeIn 0.5s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
 
-        .gallery-item img, .gallery-item video {
-            width: 100%;
-            display: block;
-            transition: 0.5s;
-        }
+        .gallery-item img, .gallery-item video { width: 100%; display: block; transition: 0.5s; }
+        .item-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; opacity: 0; transition: 0.3s; backdrop-filter: blur(2px); }
+        .gallery-item:hover .item-overlay { opacity: 1; }
+        .action-menu { background: rgba(255,255,255,0.1); padding: 15px 25px; border-radius: 15px; display: flex; gap: 20px; border: 1px solid rgba(255,255,255,0.2); }
+        .action-menu i { font-size: 1.5rem; color: #fff; transition: 0.3s; }
+        .action-menu i:hover { color: var(--accent); transform: scale(1.2); }
 
-        /* OVERLAY INTERACTIVO (COMO LA CAPTURA) */
-        .item-overlay {
-            position: absolute;
-            inset: 0;
-            background: rgba(0,0,0,0.6);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            opacity: 0;
-            transition: 0.3s;
-            backdrop-filter: blur(2px);
-        }
+        .upload-fab { position: fixed; bottom: 30px; right: 30px; width: 70px; height: 70px; background: var(--accent); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #000; font-size: 1.8rem; box-shadow: 0 0 30px rgba(0, 242, 255, 0.6); cursor: pointer; z-index: 200; transition: 0.3s; }
+        .upload-fab.loading { animation: pulse 1s infinite; opacity: 0.7; pointer-events: none; }
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
 
-        .gallery-item:hover .item-overlay {
-            opacity: 1;
-        }
-
-        .gallery-item:hover img {
-            transform: scale(1.05);
-        }
-
-        .action-menu {
-            background: rgba(255,255,255,0.1);
-            padding: 15px 25px;
-            border-radius: 15px;
-            display: flex;
-            gap: 20px;
-            border: 1px solid rgba(255,255,255,0.2);
-            backdrop-filter: blur(10px);
-        }
-
-        .action-menu i {
-            font-size: 1.5rem;
-            color: #fff;
-            transition: 0.3s;
-        }
-
-        .action-menu i:hover {
-            color: var(--accent);
-            transform: scale(1.2);
-        }
-
-        /* BOTÓN DE SUBIDA FLOTANTE */
-        .upload-fab {
-            position: fixed;
-            bottom: 30px;
-            right: 30px;
-            width: 70px;
-            height: 70px;
-            background: var(--accent);
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: #000;
-            font-size: 1.8rem;
-            box-shadow: 0 0 30px rgba(0, 242, 255, 0.6);
-            cursor: pointer;
-            z-index: 200;
-            transition: 0.3s;
-        }
-
-        .upload-fab:hover {
-            transform: scale(1.1) rotate(90deg);
-        }
-
-        /* ETIQUETA VIDEO */
-        .video-tag {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            background: rgba(0,0,0,0.7);
-            padding: 5px 10px;
-            border-radius: 8px;
-            font-size: 0.7rem;
-            font-weight: 700;
-            color: var(--accent);
-        }
+        .video-tag { position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.7); padding: 5px 10px; border-radius: 8px; font-size: 0.7rem; font-weight: 700; color: var(--accent); z-index: 5; }
     </style>
 </head>
 <body>
 
     <nav class="filter-bar">
-        <button class="filter-btn active">Todo</button>
-        <button class="filter-btn">Recientes</button>
-        <button class="filter-btn">Favoritos</button>
-        <button class="filter-btn">Videos</button>
-        <button class="filter-btn">Carpetas</button>
+        <button class="filter-btn active" id="btn-all" onclick="loadGallery('all')">Todo</button>
+        <button class="filter-btn" id="btn-img" onclick="loadGallery('img')">Fotos</button>
+        <button class="filter-btn" id="btn-vid" onclick="loadGallery('vid')">Videos</button>
     </nav>
 
     <div class="gallery-container" id="gallery">
-        <!-- Los elementos se cargan dinámicamente -->
+        <!-- Contenido Real -->
     </div>
 
-    <div class="upload-fab" onclick="document.getElementById('fileInput').click()">
+    <div class="upload-fab" id="uploadBtn" onclick="document.getElementById('fileInput').click()">
         <i class="fas fa-plus"></i>
     </div>
-    <input type="file" id="fileInput" hidden multiple accept="image/*,video/*">
+    <input type="file" id="fileInput" hidden accept="image/*,video/*">
 
     <script>
-        // Simulamos algunos datos para visualizar el diseño de la captura 2
-        const dummyData = [
-            { type: 'img', url: 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?q=80&w=800' },
-            { type: 'img', url: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?q=80&w=800' },
-            { type: 'vid', url: 'https://www.w3schools.com/html/mov_bbb.mp4' },
-            { type: 'img', url: 'https://images.unsplash.com/photo-1434725039720-abb260032913?q=80&w=800' },
-            { type: 'img', url: 'https://images.unsplash.com/photo-1501785888041-af3ef285b470?q=80&w=800' },
-            { type: 'img', url: 'https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?q=80&w=800' },
-            { type: 'vid', url: 'https://www.w3schools.com/html/movie.mp4' },
-            { type: 'img', url: 'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?q=80&w=800' }
-        ];
+        // CONFIGURACIÓN DE TU PROYECTO
+        const SUPABASE_URL = 'https://cnjoxrefiafqnqamlhpc.supabase.co';
+        const SUPABASE_KEY = 'sb_publishable_nuAFjW0AI-rVWMwgMiRyUA_ZWZf3ICp';
+        const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
         const gallery = document.getElementById('gallery');
+        const fileInput = document.getElementById('fileInput');
+        const uploadBtn = document.getElementById('uploadBtn');
 
-        function renderGallery() {
-            dummyData.forEach(item => {
+        // 1. CARGAR GALERÍA
+        async function loadGallery(filter = 'all') {
+            // Actualizar botones UI
+            document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById('btn-' + filter).classList.add('active');
+
+            gallery.innerHTML = '<p style="text-align:center; width:100%; margin-top:50px;">Sincronizando con Proyecto agustino8080...</p>';
+
+            let query = _supabase.from('galeria').select('*').order('created_at', { ascending: false });
+            if (filter !== 'all') query = query.eq('tipo', filter);
+
+            const { data, error } = await query;
+            if (error) return console.error(error);
+
+            gallery.innerHTML = '';
+            if (data.length === 0) {
+                gallery.innerHTML = '<p style="text-align:center; width:100%; opacity:0.5; margin-top:50px;">Galería vacía. Haz clic en el botón + para subir.</p>';
+            }
+
+            data.forEach(item => {
                 const div = document.createElement('div');
                 div.className = 'gallery-item';
-                
-                let content = '';
-                if(item.type === 'img') {
-                    content = `<img src="${item.url}" alt="Gallery Image">`;
-                } else {
-                    content = `
-                        <div class="video-tag">VIDEO</div>
-                        <video src="${item.url}" muted loop onmouseover="this.play()" onmouseout="this.pause()"></video>
-                    `;
-                }
+
+                let mediaTag = item.tipo === 'img'
+                    ? `<img src="${item.url}" loading="lazy">`
+                    : `<div class="video-tag">VIDEO</div><video src="${item.url}" muted loop onmouseover="this.play()" onmouseout="this.pause()"></video>`;
 
                 div.innerHTML = `
-                    ${content}
+                    ${mediaTag}
                     <div class="item-overlay">
                         <div class="action-menu">
-                            <i class="fas fa-search"></i>
-                            <i class="fas fa-download"></i>
-                            <i class="fas fa-share-alt"></i>
+                            <i class="fas fa-search" onclick="window.open('${item.url}')"></i>
+                            <i class="fas fa-trash" onclick="deleteItem(${item.id}, '${item.nombre}')"></i>
                         </div>
                     </div>
                 `;
@@ -226,14 +105,54 @@
             });
         }
 
-        renderGallery();
+        // 2. SUBIDA REAL
+        fileInput.onchange = async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
 
-        // Lógica de subida (Solo visual por ahora)
-        document.getElementById('fileInput').onchange = (e) => {
-            const files = e.target.files;
-            alert(`Sincronizando ${files.length} archivos con el servidor...`);
-            // Aquí conectarás con la API de Cloudflare/Supabase
+            // Límite de 100MB solicitado
+            if (file.size > 100 * 1024 * 1024) {
+                alert("El archivo supera los 100MB permitidos.");
+                return;
+            }
+
+            uploadBtn.classList.add('loading');
+            const fileExt = file.name.split('.').pop();
+            const fileName = `${Date.now()}_${Math.floor(Math.random()*1000)}.${fileExt}`;
+
+            // A. Subir al Storage (Bucket 'archivos')
+            const { data: storageData, error: storageError } = await _supabase.storage
+                .from('archivos')
+                .upload(fileName, file);
+
+            if (storageError) {
+                alert("Error al subir: " + storageError.message);
+                uploadBtn.classList.remove('loading');
+                return;
+            }
+
+            // B. Obtener URL Publica
+            const { data: { publicUrl } } = _supabase.storage.from('archivos').getPublicUrl(fileName);
+
+            // C. Guardar metadatos en Tabla 'galeria'
+            const tipo = file.type.startsWith('video') ? 'vid' : 'img';
+            await _supabase.from('galeria').insert([
+                { nombre: fileName, url: publicUrl, tipo: tipo }
+            ]);
+
+            uploadBtn.classList.remove('loading');
+            loadGallery();
         };
+
+        // 3. ELIMINAR
+        async function deleteItem(id, nombre) {
+            if(!confirm("¿Eliminar archivo de la nube?")) return;
+            await _supabase.from('galeria').delete().eq('id', id);
+            await _supabase.storage.from('archivos').remove([nombre]);
+            loadGallery();
+        }
+
+        loadGallery();
     </script>
 </body>
 </html>
